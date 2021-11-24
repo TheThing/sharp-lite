@@ -1,3 +1,122 @@
+# sharp-lite
+
+Sharp-lite is a none-gyp included version of sharp that instead only contains the actual javascript portion and avoids using the bloated prebuild-install dependency.
+**Note:** That means that it requires a build version included for your running OS, see them here: https://github.com/lovell/sharp/releases
+
+Because of that, the dependency tree becomes:
+
+```
+sharp-lite@0.29.3.0
++-- color@4.0.1
+| +-- color-convert@2.0.1
+| | `-- color-name@1.1.4
+| `-- color-string@1.6.0
+|   +-- color-name@1.1.4 deduped
+|   `-- simple-swizzle@0.2.2
+|     `-- is-arrayish@0.3.2
++-- detect-libc@1.0.3
+`-- semver@7.3.5
+  `-- lru-cache@6.0.0
+    `-- yallist@4.0.0
+```
+
+as opposed to:
+
+```
+sharp@0.29.3
++-- color@4.0.1
+| +-- color-convert@2.0.1
+| | `-- color-name@1.1.4
+| `-- color-string@1.6.0
+|   +-- color-name@1.1.4 deduped
+|   `-- simple-swizzle@0.2.2
+|     `-- is-arrayish@0.3.2
++-- detect-libc@1.0.3
++-- node-addon-api@4.2.0
++-- prebuild-install@7.0.0
+| +-- detect-libc@1.0.3 deduped
+| +-- expand-template@2.0.3
+| +-- github-from-package@0.0.0
+| +-- minimist@1.2.5
+| +-- mkdirp-classic@0.5.3
+| +-- napi-build-utils@1.0.2
+| +-- node-abi@3.5.0
+| | `-- semver@7.3.5 deduped
+| +-- npmlog@4.1.2
+| | +-- are-we-there-yet@1.1.7
+| | | +-- delegates@1.0.0
+| | | `-- readable-stream@2.3.7
+| | |   +-- core-util-is@1.0.3
+| | |   +-- inherits@2.0.4 deduped
+| | |   +-- isarray@1.0.0
+| | |   +-- process-nextick-args@2.0.1
+| | |   +-- safe-buffer@5.1.2 deduped
+| | |   +-- string_decoder@1.1.1 deduped
+| | |   `-- util-deprecate@1.0.2 deduped
+| | +-- console-control-strings@1.1.0
+| | +-- gauge@2.7.4
+| | | +-- aproba@1.2.0
+| | | +-- console-control-strings@1.1.0 deduped
+| | | +-- has-unicode@2.0.1
+| | | +-- object-assign@4.1.1
+| | | +-- signal-exit@3.0.6
+| | | +-- string-width@1.0.2
+| | | | +-- code-point-at@1.1.0
+| | | | +-- is-fullwidth-code-point@1.0.0
+| | | | | `-- number-is-nan@1.0.1
+| | | | `-- strip-ansi@3.0.1 deduped
+| | | +-- strip-ansi@3.0.1
+| | | | `-- ansi-regex@2.1.1
+| | | `-- wide-align@1.1.5
+| | |   `-- string-width@1.0.2 deduped
+| | `-- set-blocking@2.0.0
+| +-- pump@3.0.0
+| | +-- end-of-stream@1.4.4
+| | | `-- once@1.4.0 deduped
+| | `-- once@1.4.0 deduped
+| +-- rc@1.2.8
+| | +-- deep-extend@0.6.0
+| | +-- ini@1.3.8
+| | +-- minimist@1.2.5 deduped
+| | `-- strip-json-comments@2.0.1
+| +-- simple-get@4.0.0 deduped
+| +-- tar-fs@2.1.1 deduped
+| `-- tunnel-agent@0.6.0 deduped
++-- semver@7.3.5
+| `-- lru-cache@6.0.0
+|   `-- yallist@4.0.0
++-- simple-get@4.0.0
+| +-- decompress-response@6.0.0
+| | `-- mimic-response@3.1.0
+| +-- once@1.4.0
+| | `-- wrappy@1.0.2
+| `-- simple-concat@1.0.1
++-- tar-fs@2.1.1
+| +-- chownr@1.1.4
+| +-- mkdirp-classic@0.5.3 deduped
+| +-- pump@3.0.0 deduped
+| `-- tar-stream@2.2.0
+|   +-- bl@4.1.0
+|   | +-- buffer@5.7.1
+|   | | +-- base64-js@1.5.1
+|   | | `-- ieee754@1.2.1
+|   | +-- inherits@2.0.4 deduped
+|   | `-- readable-stream@3.6.0
+|   |   +-- inherits@2.0.4 deduped
+|   |   +-- string_decoder@1.1.1 deduped
+|   |   `-- util-deprecate@1.0.2 deduped
+|   +-- end-of-stream@1.4.4 deduped
+|   +-- fs-constants@1.0.0
+|   +-- inherits@2.0.4
+|   `-- readable-stream@3.6.0
+|     +-- inherits@2.0.4 deduped
+|     +-- string_decoder@1.1.1
+|     | `-- safe-buffer@5.1.2 deduped
+|     `-- util-deprecate@1.0.2
+`-- tunnel-agent@0.6.0
+  `-- safe-buffer@5.1.2
+```
+
 # sharp
 
 <img src="https://cdn.jsdelivr.net/gh/lovell/sharp@master/docs/image/sharp-logo.svg" width="160" height="160" alt="sharp logo" align="right">
