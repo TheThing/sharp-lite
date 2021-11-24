@@ -65,30 +65,39 @@ const downloadRelease = function() {
 
   utils.request({ }, url, path.join(targetFolder, 'file.tar.gz'))
   .then(function() {
-    let promise = null;
-    let program = '"C:\\Program Files\\7-Zip\\7z.exe"'
-    if (process.platform !== 'win32') {
+    let promise
+    if (process.platform === 'win32') {
+      promise = utils.runCommand(
+        '"C:\\Program Files\\7-Zip\\7z.exe"',
+        ['x', '-y', `"file.tar.gz"`],
+        targetFolder,
+        // (line) => console.log(line)
+      ).then(function() {
+        console.log(`Extracting ${path.join(targetFolder, 'file.tar')}`)
+        return utils.runCommand(
+          program,
+          ['x', '-y', `"file.tar"`],
+          targetFolder
+        )
+      })
+    } else {
+      promise = utils.runCommand(
+        'tar',
+        ['-xf', `"file.tar.gz"`],
+        targetFolder,
+        // (line) => console.log(line)
+      )
       fail(new Error('Only win32 is supported for now'))
     }
+
     console.log(`Extracting ${path.join(targetFolder, 'file.tar.gz')}`)
 
-    utils.runCommand(
-      program,
-      ['x', '-y', `"file.tar.gz"`],
-      targetFolder,
-      // (line) => console.log(line)
-    ).then(function() {
-      fs.unlinkSync(path.join(targetFolder, 'file.tar.gz'))
-
-      console.log(`Extracting ${path.join(targetFolder, 'file.tar')}`)
-      return utils.runCommand(
-        program,
-        ['x', '-y', `"file.tar"`],
-        targetFolder
-      )
-    })
-    .then(function() {
-      fs.unlinkSync(path.join(targetFolder, 'file.tar'))
+    
+    promise.then(function() {
+      try {
+        fs.unlinkSync(path.join(targetFolder, 'file.tar.gz'))
+        fs.unlinkSync(path.join(targetFolder, 'file.tar'))
+      } catch {}
     })
     .catch(fail)
   }, function(err) {
@@ -125,7 +134,11 @@ const extractTarball = function (tarPath, platformAndArch) {
           versionedVendorPath
         )
       } else {
-        fail(new Error('Only win32 is supported for now'))
+        promise = utils.runCommand(
+          'tar',
+          ['-xf', `"file.tar"`],
+          versionedVendorPath
+        )
       }
 
       promise.then(
