@@ -9,12 +9,13 @@ const zlib = require('zlib');
 const detectLibc = require('detect-libc');
 const semverLessThan = require('semver/functions/lt');
 const semverSatisfies = require('semver/functions/satisfies');
-const simpleGet = require('simple-get');
-const tarFs = require('tar-fs');
+// const simpleGet = require('simple-get');
+// const tarFs = require('tar-fs');
 
-const agent = require('../lib/agent');
+const utils = require('./utils')
 const libvips = require('../lib/libvips');
 const platform = require('../lib/platform');
+const packageConfig = require('../package.json')
 
 const minimumGlibcVersionByArch = {
   arm: '2.28',
@@ -39,35 +40,74 @@ const distBaseUrl = process.env.npm_config_sharp_dist_base_url || process.env.SH
 const installationForced = !!(process.env.npm_config_sharp_install_force || process.env.SHARP_INSTALL_FORCE);
 
 const fail = function (err) {
-  libvips.log(err);
+  console.error(err);
   if (err.code === 'EACCES') {
-    libvips.log('Are you trying to install as a root or sudo user? Try again with the --unsafe-perm flag');
+    console.log('Are you trying to install as a root or sudo user? Try again with the --unsafe-perm flag');
   }
-  libvips.log('Please see https://sharp.pixelplumbing.com/install for required dependencies');
+  console.log('Please see https://sharp.pixelplumbing.com/install for required dependencies');
   process.exit(1);
 };
 
 const handleError = function (err) {
   if (installationForced) {
-    libvips.log(`Installation warning: ${err.message}`);
+    console.log(`Installation warning: ${err.message}`);
   } else {
     throw err;
   }
 };
 
+const downloadRelease = function() {
+  const platformAndArch = platform();
+  let version = packageConfig.version.slice(0, packageConfig.version.lastIndexOf('.'))
+  let url = `https://github.com/lovell/sharp/releases/download/v${version}/sharp-v${version}-${packageConfig.config.runtime}-v${packageConfig.config.target}-${platformAndArch}.tar.gz`
+  console.log(`Downloading ${url}`)
+  let targetFolder = path.join(__dirname, '..')
+
+  utils.request({ }, url, path.join(targetFolder, 'file.tar.gz'))
+  .then(function() {
+    let promise = null;
+    let program = '"C:\\Program Files\\7-Zip\\7z.exe"'
+    if (process.platform !== 'win32') {
+      fail(new Error('Only win32 is supported for now'))
+    }
+    console.log(`Extracting ${path.join(targetFolder, 'file.tar.gz')}`)
+
+    utils.runCommand(
+      program,
+      ['x', '-y', `"file.tar.gz"`],
+      targetFolder,
+      // (line) => console.log(line)
+    ).then(function() {
+      fs.unlinkSync(path.join(targetFolder, 'file.tar.gz'))
+
+      console.log(`Extracting ${path.join(targetFolder, 'file.tar')}`)
+      return utils.runCommand(
+        program,
+        ['x', '-y', `"file.tar"`],
+        targetFolder
+      )
+    })
+    .then(function() {
+      fs.unlinkSync(path.join(targetFolder, 'file.tar'))
+    })
+    .catch(fail)
+  }, function(err) {
+    // Clean up temporary file
+    try {
+      fs.unlinkSync(tarPathTemp);
+    } catch (e) {}
+    fail(err);
+  })
+}
+
 const extractTarball = function (tarPath, platformAndArch) {
   const versionedVendorPath = path.join(__dirname, '..', 'vendor', minimumLibvipsVersion, platformAndArch);
   libvips.mkdirSync(versionedVendorPath);
 
-  const ignoreVendorInclude = hasSharpPrebuild.includes(platformAndArch) && !process.env.npm_config_build_from_source;
-  const ignore = function (name) {
-    return ignoreVendorInclude && name.includes('include/');
-  };
-
   stream.pipeline(
     fs.createReadStream(tarPath),
     new zlib.BrotliDecompress(),
-    tarFs.extract(versionedVendorPath, { ignore }),
+    fs.createWriteStream(path.join(versionedVendorPath, 'file.tar')),
     function (err) {
       if (err) {
         if (/unexpected end of file/.test(err.message)) {
@@ -75,20 +115,42 @@ const extractTarball = function (tarPath, platformAndArch) {
         }
         fail(err);
       }
+
+      let promise = null;
+
+      if (process.platform === 'win32') {
+        promise = utils.runCommand(
+          '"C:\\Program Files\\7-Zip\\7z.exe"',
+          ['x', `"file.tar"`],
+          versionedVendorPath
+        )
+      } else {
+        fail(new Error('Only win32 is supported for now'))
+      }
+
+      promise.then(
+        function() {
+          fs.unlinkSync(path.join(versionedVendorPath, 'file.tar'))
+          downloadRelease()
+        },
+      )
+      .catch(fail)
     }
   );
 };
 
 try {
   const useGlobalLibvips = libvips.useGlobalLibvips();
+  console.log(platform())
 
   if (useGlobalLibvips) {
     const globalLibvipsVersion = libvips.globalLibvipsVersion();
-    libvips.log(`Detected globally-installed libvips v${globalLibvipsVersion}`);
-    libvips.log('Building from source via node-gyp');
+    console.log(`Detected globally-installed libvips v${globalLibvipsVersion}`);
+    console.log('Building from source via node-gyp');
     process.exit(1);
   } else if (libvips.hasVendoredLibvips()) {
-    libvips.log(`Using existing vendored libvips v${minimumLibvipsVersion}`);
+    console.log(`Using existing vendored libvips v${minimumLibvipsVersion}`);
+    downloadRelease()
   } else {
     // Is this arch/platform supported?
     const arch = process.env.npm_config_arch || process.arch;
@@ -123,52 +185,31 @@ try {
     const tarFilename = ['libvips', minimumLibvipsVersion, platformAndArch].join('-') + '.tar.br';
     const tarPathCache = path.join(libvips.cachePath(), tarFilename);
     if (fs.existsSync(tarPathCache)) {
-      libvips.log(`Using cached ${tarPathCache}`);
+      console.log(`Using cached ${tarPathCache}`);
       extractTarball(tarPathCache, platformAndArch);
     } else {
       const url = distBaseUrl + tarFilename;
-      libvips.log(`Downloading ${url}`);
-      simpleGet({ url: url, agent: agent() }, function (err, response) {
-        if (err) {
-          fail(err);
-        } else if (response.statusCode === 404) {
-          fail(new Error(`Prebuilt libvips ${minimumLibvipsVersion} binaries are not yet available for ${platformAndArch}`));
-        } else if (response.statusCode !== 200) {
-          fail(new Error(`Status ${response.statusCode} ${response.statusMessage}`));
-        } else {
-          const tarPathTemp = path.join(os.tmpdir(), `${process.pid}-${tarFilename}`);
-          const tmpFileStream = fs.createWriteStream(tarPathTemp);
-          response
-            .on('error', function (err) {
-              tmpFileStream.destroy(err);
-            })
-            .on('close', function () {
-              if (!response.complete) {
-                tmpFileStream.destroy(new Error('Download incomplete (connection was terminated)'));
-              }
-            })
-            .pipe(tmpFileStream);
-          tmpFileStream
-            .on('error', function (err) {
-              // Clean up temporary file
-              try {
-                fs.unlinkSync(tarPathTemp);
-              } catch (e) {}
-              fail(err);
-            })
-            .on('close', function () {
-              try {
-                // Attempt to rename
-                fs.renameSync(tarPathTemp, tarPathCache);
-              } catch (err) {
-                // Fall back to copy and unlink
-                fs.copyFileSync(tarPathTemp, tarPathCache);
-                fs.unlinkSync(tarPathTemp);
-              }
-              extractTarball(tarPathCache, platformAndArch);
-            });
+      const tarPathTemp = path.join(os.tmpdir(), `${process.pid}-${tarFilename}`);
+      console.log(`Downloading ${url}`);
+
+      utils.request({ }, url, tarPathTemp)
+      .then(function() {
+        try {
+          // Attempt to rename
+          fs.renameSync(tarPathTemp, tarPathCache);
+        } catch (err) {
+          // Fall back to copy and unlink
+          fs.copyFileSync(tarPathTemp, tarPathCache);
+          fs.unlinkSync(tarPathTemp);
         }
-      });
+        extractTarball(tarPathCache, platformAndArch);
+      }, function(err) {
+        // Clean up temporary file
+        try {
+          fs.unlinkSync(tarPathTemp);
+        } catch (e) {}
+        fail(err);
+      })
     }
   }
 } catch (err) {

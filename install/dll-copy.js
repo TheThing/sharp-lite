@@ -12,12 +12,12 @@ const platformAndArch = platform();
 
 if (platformAndArch.startsWith('win32')) {
   const buildReleaseDir = path.join(__dirname, '..', 'build', 'Release');
-  libvips.log(`Creating ${buildReleaseDir}`);
+  console.log(`Creating ${buildReleaseDir}`);
   try {
     libvips.mkdirSync(buildReleaseDir);
   } catch (err) {}
   const vendorLibDir = path.join(__dirname, '..', 'vendor', minimumLibvipsVersion, platformAndArch, 'lib');
-  libvips.log(`Copying DLLs from ${vendorLibDir} to ${buildReleaseDir}`);
+  console.log(`Copying DLLs from ${vendorLibDir} to ${buildReleaseDir}`);
   try {
     fs
       .readdirSync(vendorLibDir)
@@ -31,7 +31,7 @@ if (platformAndArch.startsWith('win32')) {
         );
       });
   } catch (err) {
-    libvips.log(err);
+    console.error(err);
     process.exit(1);
   }
 }
