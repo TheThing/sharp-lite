@@ -58,8 +58,7 @@ const handleError = function (err) {
 
 const downloadRelease = function() {
   const platformAndArch = platform();
-  let version = packageConfig.version.slice(0, packageConfig.version.lastIndexOf('.'))
-  let url = `https://github.com/lovell/sharp/releases/download/v${version}/sharp-v${version}-${packageConfig.config.runtime}-v${packageConfig.config.target}-${platformAndArch}.tar.gz`
+  let url = `https://github.com/lovell/sharp/releases/download/v${packageConfig.config.sharp}/sharp-v${packageConfig.config.sharp}-${packageConfig.config.runtime}-v${packageConfig.config.target}-${platformAndArch}.tar.gz`
   console.log(`Downloading ${url}`)
   let targetFolder = path.join(__dirname, '..')
 
@@ -75,7 +74,7 @@ const downloadRelease = function() {
       ).then(function() {
         console.log(`Extracting ${path.join(targetFolder, 'file.tar')}`)
         return utils.runCommand(
-          program,
+          '"C:\\Program Files\\7-Zip\\7z.exe"',
           ['x', '-y', `"file.tar"`],
           targetFolder
         )
