@@ -3,7 +3,7 @@
 Sharp-lite is a none-gyp included version of sharp that instead only contains the actual javascript portion and avoids using the bloated prebuild-install dependency.
 **Note:** That means that it requires a build version included for your running OS, see them here: https://github.com/lovell/sharp/releases
 
-Because of that, the dependency tree becomes:
+Because of that, the dependency tree becomes a lot lighter:
 
 ```
 sharp-lite@0.29.3.0
@@ -18,6 +18,16 @@ sharp-lite@0.29.3.0
 `-- semver@7.3.5
   `-- lru-cache@6.0.0
     `-- yallist@4.0.0
+```
+
+not to mention the license list:
+
+```
+> license-checker --production --summary --onlyAllow="Apache-2.0;BSD;ISC;MIT"
+
+├─ MIT: 6
+├─ ISC: 3
+└─ Apache-2.0: 2
 ```
 
 as opposed to:
