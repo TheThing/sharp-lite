@@ -64,35 +64,48 @@ const downloadRelease = function() {
 
   utils.request({ }, url, path.join(targetFolder, 'file.tar.gz'))
   .then(function() {
-    let promise
-    if (process.platform === 'win32') {
-      promise = utils.runCommand(
-        '"C:\\Program Files\\7-Zip\\7z.exe"',
-        ['x', '-y', `"file.tar.gz"`],
-        targetFolder,
-        // (line) => console.log(line)
+    let command = null
+    let args = []
+
+    // Find all possible ways of being able to extract the file
+    Promise.all([
+      utils.runCommand('tar', ['--help']).then(
+        () => { return ['tar', ['-xf'], false] },
+        () => { return null }
+      ),
+      utils.runCommand('"C:\\Program Files\\7-Zip\\7z.exe"', ['--help']).then(
+        () => { return ['"C:\\Program Files\\7-Zip\\7z.exe"', ['x', '-y'], true] },
+        () => { return null }
+      ),
+      utils.runCommand('7zz', ['--help']).then(
+        () => { return ['7zz', ['x', '-y'], true] },
+        () => { return null }
+      ),
+    ])
+    .then(results => {
+      // Grab the first one
+      let item = results.filter(x => Boolean(x))[0]
+      if (!item) {
+        fail(new Error('could not find a supporting program. Make sure 7zip is installed in windows or that you have 7zz or tar intalled.'))
+      }
+
+      return utils.runCommand(
+        item[0],
+        item[1].slice().concat([`"file.tar.gz"`]),
+        targetFolder
       ).then(function() {
-        console.log(`Extracting ${path.join(targetFolder, 'file.tar')}`)
-        return utils.runCommand(
-          '"C:\\Program Files\\7-Zip\\7z.exe"',
-          ['x', '-y', `"file.tar"`],
-          targetFolder
-        )
+        // check if third item is true. If so, this is a stupid program that doesn't
+        // understand how stupid tar is so we need to extract again.
+        if (item[2]) {
+          return utils.runCommand(
+            item[0],
+            item[1].slice().concat([`"file.tar"`]),
+            targetFolder
+          )
+        }
       })
-    } else {
-      promise = utils.runCommand(
-        'tar',
-        ['-xf', `"file.tar.gz"`],
-        targetFolder,
-        // (line) => console.log(line)
-      )
-      fail(new Error('Only win32 is supported for now'))
-    }
-
-    console.log(`Extracting ${path.join(targetFolder, 'file.tar.gz')}`)
-
-    
-    promise.then(function() {
+    })
+    .then(function() {
       try {
         fs.unlinkSync(path.join(targetFolder, 'file.tar.gz'))
         fs.unlinkSync(path.join(targetFolder, 'file.tar'))
@@ -102,7 +115,7 @@ const downloadRelease = function() {
   }, function(err) {
     // Clean up temporary file
     try {
-      fs.unlinkSync(tarPathTemp);
+      fs.unlinkSync(path.join(targetFolder, 'file.tar.gz'));
     } catch (e) {}
     fail(err);
   })
@@ -153,7 +166,7 @@ const extractTarball = function (tarPath, platformAndArch) {
 
 try {
   const useGlobalLibvips = libvips.useGlobalLibvips();
-  console.log(platform())
+  console.log('Detected platform:', platform())
 
   if (useGlobalLibvips) {
     const globalLibvipsVersion = libvips.globalLibvipsVersion();

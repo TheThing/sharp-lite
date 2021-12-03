@@ -28,7 +28,7 @@ function runCommand(command, options = [], folder = null, stream = function() {}
     processor.on('exit', function (code) {
       clearInterval(timeOuter)
       if (code !== 0) {
-        return rej(new Error('Program returned error code: ' + code))
+        return rej(new Error(`Running "${command} ${options.join(' ')}" returned error code: ` + code))
       }
       res(code)
     })
