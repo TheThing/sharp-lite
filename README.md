@@ -127,6 +127,17 @@ sharp@0.29.3
   `-- safe-buffer@5.1.2
 ```
 
+with
+
+```
+├─ MIT: 45
+├─ ISC: 17
+├─ Apache-2.0: 3
+├─ (MIT OR WTFPL): 1
+├─ BSD-3-Clause: 1
+└─ (BSD-2-Clause OR MIT OR Apache-2.0): 1
+```
+
 # sharp
 
 <img src="https://cdn.jsdelivr.net/gh/lovell/sharp@master/docs/image/sharp-logo.svg" width="160" height="160" alt="sharp logo" align="right">
