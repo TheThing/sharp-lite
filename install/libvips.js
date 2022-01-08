@@ -43,6 +43,7 @@ const fail = function (err) {
   console.error(err);
   if (err.code === 'EACCES') {
     console.log('Are you trying to install as a root or sudo user? Try again with the --unsafe-perm flag');
+    console.log('Current user:', os.userInfo())
   }
   console.log('Please see https://sharp.pixelplumbing.com/install for required dependencies');
   process.exit(1);
