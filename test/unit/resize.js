@@ -357,6 +357,93 @@ describe('Resize dimensions', function () {
       });
   });
 
+  it('Do enlarge when input width is less than output width', function (done) {
+    sharp(fixtures.inputJpg)
+      .resize({
+        width: 2800,
+        withoutReduction: true
+      })
+      .toBuffer(function (err, data, info) {
+        if (err) throw err;
+        assert.strictEqual(true, data.length > 0);
+        assert.strictEqual('jpeg', info.format);
+        assert.strictEqual(2800, info.width);
+        assert.strictEqual(2286, info.height);
+        done();
+      });
+  });
+
+  it('Do enlarge when input height is less than output height', function (done) {
+    sharp(fixtures.inputJpg)
+      .resize({
+        height: 2300,
+        withoutReduction: true
+      })
+      .toBuffer(function (err, data, info) {
+        if (err) throw err;
+        assert.strictEqual(true, data.length > 0);
+        assert.strictEqual('jpeg', info.format);
+        assert.strictEqual(2817, info.width);
+        assert.strictEqual(2300, info.height);
+        done();
+      });
+  });
+
+  it('Do enlarge when input width is less than output width', function (done) {
+    sharp(fixtures.inputJpg)
+      .resize({
+        width: 2800,
+        withoutReduction: false
+      })
+      .toBuffer(function (err, data, info) {
+        if (err) throw err;
+        assert.strictEqual(true, data.length > 0);
+        assert.strictEqual('jpeg', info.format);
+        assert.strictEqual(2800, info.width);
+        assert.strictEqual(2286, info.height);
+        done();
+      });
+  });
+
+  it('Do not resize when both withoutEnlargement and withoutReduction are true', function (done) {
+    sharp(fixtures.inputJpg)
+      .resize(320, 320, { fit: 'fill', withoutEnlargement: true, withoutReduction: true })
+      .toBuffer(function (err, data, info) {
+        if (err) throw err;
+        assert.strictEqual(true, data.length > 0);
+        assert.strictEqual('jpeg', info.format);
+        assert.strictEqual(2725, info.width);
+        assert.strictEqual(2225, info.height);
+        done();
+      });
+  });
+
+  it('Do not reduce size when fit = outside and withoutReduction are true and height > outputHeight and width > outputWidth', function (done) {
+    sharp(fixtures.inputJpg)
+      .resize(320, 320, { fit: 'outside', withoutReduction: true })
+      .toBuffer(function (err, data, info) {
+        if (err) throw err;
+        assert.strictEqual(true, data.length > 0);
+        assert.strictEqual('jpeg', info.format);
+        assert.strictEqual(2725, info.width);
+        assert.strictEqual(2225, info.height);
+        done();
+      });
+  });
+
+  it('Do resize when fit = outside and withoutReduction are true and input height > height and input width > width ', function (done) {
+    sharp(fixtures.inputJpg)
+      .resize(3000, 3000, { fit: 'outside', withoutReduction: true })
+      .toBuffer(function (err, data, info) {
+        if (err) throw err;
+        assert.strictEqual(true, data.length > 0);
+        assert.strictEqual('jpeg', info.format);
+        assert.strictEqual(3674, info.width);
+        assert.strictEqual(3000, info.height);
+        done();
+      });
+  });
+
   it('fit=fill, downscale width and height', function (done) {
     sharp(fixtures.inputJpg)
       .resize(320, 320, { fit: 'fill' })
@@ -516,28 +603,21 @@ describe('Resize dimensions', function () {
       });
   });
 
-  it('fastShrinkOnLoad: false ensures image is not shifted', function (done) {
-    return sharp(fixtures.inputJpgCenteredImage)
-      .resize(9, 8, { fastShrinkOnLoad: false })
-      .png()
-      .toBuffer(function (err, data, info) {
-        if (err) throw err;
-        assert.strictEqual(9, info.width);
-        assert.strictEqual(8, info.height);
-        fixtures.assertSimilar(fixtures.expected('fast-shrink-on-load-false.png'), data, done);
-      });
-  });
-
-  it('fastShrinkOnLoad: true (default) might result in shifted image', function (done) {
-    return sharp(fixtures.inputJpgCenteredImage)
-      .resize(9, 8)
-      .png()
-      .toBuffer(function (err, data, info) {
-        if (err) throw err;
-        assert.strictEqual(9, info.width);
-        assert.strictEqual(8, info.height);
-        fixtures.assertSimilar(fixtures.expected('fast-shrink-on-load-true.png'), data, done);
-      });
+  [
+    true,
+    false
+  ].forEach(function (value) {
+    it(`fastShrinkOnLoad: ${value} does not causes image shifts`, function (done) {
+      sharp(fixtures.inputJpgCenteredImage)
+        .resize(9, 8, { fastShrinkOnLoad: value })
+        .png()
+        .toBuffer(function (err, data, info) {
+          if (err) throw err;
+          assert.strictEqual(9, info.width);
+          assert.strictEqual(8, info.height);
+          fixtures.assertSimilar(fixtures.expected('fast-shrink-on-load.png'), data, done);
+        });
+    });
   });
 
   [
@@ -657,6 +737,27 @@ describe('Resize dimensions', function () {
 
     assert.strictEqual(info.width, 8);
     assert.strictEqual(info.height, 1);
+  });
+
+  it('Skip JPEG shrink-on-load for known libjpeg rounding errors', async () => {
+    const input = await sharp({
+      create: {
+        width: 1000,
+        height: 667,
+        channels: 3,
+        background: 'red'
+      }
+    })
+      .jpeg()
+      .toBuffer();
+
+    const output = await sharp(input)
+      .resize({ width: 500 })
+      .toBuffer();
+
+    const { width, height } = await sharp(output).metadata();
+    assert.strictEqual(width, 500);
+    assert.strictEqual(height, 334);
   });
 
   it('unknown kernel throws', function () {

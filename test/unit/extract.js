@@ -39,10 +39,35 @@ describe('Partial image extraction', function () {
       });
   });
 
+  describe('Animated WebP', function () {
+    it('Before resize', function (done) {
+      sharp(fixtures.inputWebPAnimated, { pages: -1 })
+        .extract({ left: 0, top: 30, width: 80, height: 20 })
+        .resize(320, 80)
+        .toBuffer(function (err, data, info) {
+          if (err) throw err;
+          assert.strictEqual(320, info.width);
+          assert.strictEqual(80 * 9, info.height);
+          fixtures.assertSimilar(fixtures.expected('gravity-center-height.webp'), data, done);
+        });
+    });
+
+    it('After resize', function (done) {
+      sharp(fixtures.inputWebPAnimated, { pages: -1 })
+        .resize(320, 320)
+        .extract({ left: 0, top: 120, width: 320, height: 80 })
+        .toBuffer(function (err, data, info) {
+          if (err) throw err;
+          assert.strictEqual(320, info.width);
+          assert.strictEqual(80 * 9, info.height);
+          fixtures.assertSimilar(fixtures.expected('gravity-center-height.webp'), data, done);
+        });
+    });
+  });
+
   it('TIFF', function (done) {
     sharp(fixtures.inputTiff)
       .extract({ left: 34, top: 63, width: 341, height: 529 })
-      .jpeg()
       .toBuffer(function (err, data, info) {
         if (err) throw err;
         assert.strictEqual(341, info.width);
@@ -140,6 +165,16 @@ describe('Partial image extraction', function () {
         assert.strictEqual(380, info.width);
         assert.strictEqual(280, info.height);
         fixtures.assertSimilar(fixtures.expected('rotate-extract-45.jpg'), data, { threshold: 7 }, done);
+      });
+  });
+
+  it('Rotate with EXIF mirroring then extract', function (done) {
+    sharp(fixtures.inputJpgWithLandscapeExif7)
+      .rotate()
+      .extract({ left: 0, top: 208, width: 60, height: 40 })
+      .toBuffer(function (err, data) {
+        if (err) throw err;
+        fixtures.assertSimilar(fixtures.expected('rotate-mirror-extract.jpg'), data, done);
       });
   });
 

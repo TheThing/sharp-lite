@@ -6,16 +6,30 @@ const sharp = require('../../');
 const fixtures = require('../fixtures');
 
 describe('Extend', function () {
-  it('extend all sides equally via a single value', function (done) {
-    sharp(fixtures.inputJpg)
-      .resize(120)
-      .extend(10)
-      .toBuffer(function (err, data, info) {
-        if (err) throw err;
-        assert.strictEqual(140, info.width);
-        assert.strictEqual(118, info.height);
-        fixtures.assertSimilar(fixtures.expected('extend-equal-single.jpg'), data, done);
-      });
+  describe('extend all sides equally via a single value', function () {
+    it('JPEG', function (done) {
+      sharp(fixtures.inputJpg)
+        .resize(120)
+        .extend(10)
+        .toBuffer(function (err, data, info) {
+          if (err) throw err;
+          assert.strictEqual(140, info.width);
+          assert.strictEqual(118, info.height);
+          fixtures.assertSimilar(fixtures.expected('extend-equal-single.jpg'), data, done);
+        });
+    });
+
+    it('Animated WebP', function (done) {
+      sharp(fixtures.inputWebPAnimated, { pages: -1 })
+        .resize(120)
+        .extend(10)
+        .toBuffer(function (err, data, info) {
+          if (err) throw err;
+          assert.strictEqual(140, info.width);
+          assert.strictEqual(140 * 9, info.height);
+          fixtures.assertSimilar(fixtures.expected('extend-equal-single.webp'), data, done);
+        });
+    });
   });
 
   it('extend all sides equally with RGB', function (done) {
@@ -126,7 +140,7 @@ describe('Extend', function () {
   });
 
   it('Premultiply background when compositing', async () => {
-    const background = '#bf1942cc';
+    const background = { r: 191, g: 25, b: 66, alpha: 0.8 };
     const data = await sharp({
       create: {
         width: 1, height: 1, channels: 4, background: '#fff0'
@@ -144,10 +158,6 @@ describe('Extend', function () {
       })
       .raw()
       .toBuffer();
-    const [r1, g1, b1, a1, r2, g2, b2, a2] = data;
-    assert.strictEqual(true, Math.abs(r2 - r1) < 2);
-    assert.strictEqual(true, Math.abs(g2 - g1) < 2);
-    assert.strictEqual(true, Math.abs(b2 - b1) < 2);
-    assert.strictEqual(true, Math.abs(a2 - a1) < 2);
+    assert.deepStrictEqual(Array.from(data), [191, 25, 66, 204, 191, 25, 66, 204]);
   });
 });

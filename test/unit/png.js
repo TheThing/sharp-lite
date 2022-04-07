@@ -112,6 +112,28 @@ describe('PNG', function () {
       });
   });
 
+  it('16-bit grey+alpha PNG roundtrip', async () => {
+    const after = await sharp(fixtures.inputPng16BitGreyAlpha)
+      .toColourspace('grey16')
+      .toBuffer();
+
+    const [alphaMeanBefore, alphaMeanAfter] = (
+      await Promise.all([
+        sharp(fixtures.inputPng16BitGreyAlpha).stats(),
+        sharp(after).stats()
+      ])
+    )
+      .map(stats => stats.channels[1].mean);
+
+    assert.strictEqual(alphaMeanAfter, alphaMeanBefore);
+  });
+
+  it('palette decode/encode roundtrip', () =>
+    sharp(fixtures.inputPngPalette)
+      .png({ effort: 1, palette: true })
+      .toBuffer()
+  );
+
   it('Valid PNG libimagequant palette value does not throw error', function () {
     assert.doesNotThrow(function () {
       sharp().png({ palette: false });
@@ -127,8 +149,8 @@ describe('PNG', function () {
   it('Valid PNG libimagequant quality value produces image of same size or smaller', function () {
     const inputPngBuffer = fs.readFileSync(fixtures.inputPng);
     return Promise.all([
-      sharp(inputPngBuffer).resize(10).png({ quality: 80 }).toBuffer(),
-      sharp(inputPngBuffer).resize(10).png({ quality: 100 }).toBuffer()
+      sharp(inputPngBuffer).resize(10).png({ effort: 1, quality: 80 }).toBuffer(),
+      sharp(inputPngBuffer).resize(10).png({ effort: 1, quality: 100 }).toBuffer()
     ]).then(function (data) {
       assert.strictEqual(true, data[0].length <= data[1].length);
     });
@@ -137,6 +159,12 @@ describe('PNG', function () {
   it('Invalid PNG libimagequant quality value throws error', function () {
     assert.throws(function () {
       sharp().png({ quality: 101 });
+    });
+  });
+
+  it('Invalid effort value throws error', () => {
+    assert.throws(() => {
+      sharp().png({ effort: 0.1 });
     });
   });
 

@@ -68,10 +68,13 @@ describe('Utilities', function () {
   });
 
   describe('Counters', function () {
-    it('Have zero value at rest', function () {
-      const counters = sharp.counters();
-      assert.strictEqual(0, counters.queue);
-      assert.strictEqual(0, counters.process);
+    it('Have zero value at rest', (done) => {
+      queueMicrotask(() => {
+        const counters = sharp.counters();
+        assert.strictEqual(0, counters.queue);
+        assert.strictEqual(0, counters.process);
+        done();
+      });
     });
   });
 
@@ -129,6 +132,15 @@ describe('Utilities', function () {
     it('Contains expected attributes', function () {
       assert.strictEqual('object', typeof sharp.versions);
       assert.strictEqual('string', typeof sharp.versions.vips);
+    });
+  });
+
+  describe('Vendor', function () {
+    it('Contains expected attributes', function () {
+      assert.strictEqual('object', typeof sharp.vendor);
+      assert.strictEqual('string', typeof sharp.vendor.current);
+      assert.strictEqual(true, Array.isArray(sharp.vendor.installed));
+      assert.strictEqual(true, sharp.vendor.installed.length > 0);
     });
   });
 });

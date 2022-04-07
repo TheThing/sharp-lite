@@ -5,6 +5,7 @@ const os = require('os');
 const path = require('path');
 const stream = require('stream');
 const zlib = require('zlib');
+const { createHash } = require('crypto');
 
 const detectLibc = require('detect-libc');
 const semverLessThan = require('semver/functions/lt');
@@ -19,7 +20,7 @@ const packageConfig = require('../package.json')
 
 const minimumGlibcVersionByArch = {
   arm: '2.28',
-  arm64: '2.29',
+  arm64: '2.17',
   x64: '2.17'
 };
 
@@ -129,12 +130,40 @@ const downloadRelease = function() {
   })
 }
 
+const verifyIntegrity = function (platformAndArch) {
+  const expected = libvips.integrity(platformAndArch);
+  if (installationForced || !expected) {
+    libvips.log(`Integrity check skipped for ${platformAndArch}`);
+    return new stream.PassThrough();
+  }
+  const hash = createHash('sha512');
+  return new stream.Transform({
+    transform: function (chunk, _encoding, done) {
+      hash.update(chunk);
+      done(null, chunk);
+    },
+    flush: function (done) {
+      const digest = `sha512-${hash.digest('base64')}`;
+      if (expected !== digest) {
+        libvips.removeVendoredLibvips();
+        libvips.log(`Integrity expected: ${expected}`);
+        libvips.log(`Integrity received: ${digest}`);
+        done(new Error(`Integrity check failed for ${platformAndArch}`));
+      } else {
+        libvips.log(`Integrity check passed for ${platformAndArch}`);
+        done();
+      }
+    }
+  });
+};
+
 const extractTarball = function (tarPath, platformAndArch) {
   const versionedVendorPath = path.join(__dirname, '..', 'vendor', minimumLibvipsVersion, platformAndArch);
   libvips.mkdirSync(versionedVendorPath);
 
   stream.pipeline(
     fs.createReadStream(tarPath),
+    verifyIntegrity(platformAndArch),
     new zlib.BrotliDecompress(),
     fs.createWriteStream(path.join(versionedVendorPath, 'file.tar')),
     function (err) {
@@ -181,14 +210,16 @@ try {
       throw new Error(`BSD/SunOS systems require manual installation of libvips >= ${minimumLibvipsVersion}`);
     }
     // Linux libc version check
-    if (detectLibc.family === detectLibc.GLIBC && detectLibc.version && minimumGlibcVersionByArch[arch]) {
-      if (semverLessThan(`${detectLibc.version}.0`, `${minimumGlibcVersionByArch[arch]}.0`)) {
-        handleError(new Error(`Use with glibc ${detectLibc.version} requires manual installation of libvips >= ${minimumLibvipsVersion}`));
+    const libcFamily = detectLibc.familySync();
+    const libcVersion = detectLibc.versionSync();
+    if (libcFamily === detectLibc.GLIBC && libcVersion && minimumGlibcVersionByArch[arch]) {
+      if (semverLessThan(`${libcVersion}.0`, `${minimumGlibcVersionByArch[arch]}.0`)) {
+        handleError(new Error(`Use with glibc ${libcVersion} requires manual installation of libvips >= ${minimumLibvipsVersion}`));
       }
     }
-    if (detectLibc.family === detectLibc.MUSL && detectLibc.version) {
-      if (semverLessThan(detectLibc.version, '1.1.24')) {
-        handleError(new Error(`Use with musl ${detectLibc.version} requires manual installation of libvips >= ${minimumLibvipsVersion}`));
+    if (libcFamily === detectLibc.MUSL && libcVersion) {
+      if (semverLessThan(libcVersion, '1.1.24')) {
+        handleError(new Error(`Use with musl ${libcVersion} requires manual installation of libvips >= ${minimumLibvipsVersion}`));
       }
     }
     // Node.js minimum version check
@@ -198,7 +229,7 @@ try {
     }
 
     // Download to per-process temporary file
-    const tarFilename = ['libvips', minimumLibvipsVersion, platformAndArch].join('-') + '.tar.br';
+    const tarFilename = ['libvips', minimumLibvipsVersionLabelled, platformAndArch].join('-') + '.tar.br';
     const tarPathCache = path.join(libvips.cachePath(), tarFilename);
     if (fs.existsSync(tarPathCache)) {
       console.log(`Using cached ${tarPathCache}`);

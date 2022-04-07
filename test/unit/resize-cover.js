@@ -269,6 +269,30 @@ describe('Resize fit=cover', function () {
       });
   });
 
+  describe('Animated WebP', function () {
+    it('Width only', function (done) {
+      sharp(fixtures.inputWebPAnimated, { pages: -1 })
+        .resize(80, 320, { fit: sharp.fit.cover })
+        .toBuffer(function (err, data, info) {
+          if (err) throw err;
+          assert.strictEqual(80, info.width);
+          assert.strictEqual(320 * 9, info.height);
+          fixtures.assertSimilar(fixtures.expected('gravity-center-width.webp'), data, done);
+        });
+    });
+
+    it('Height only', function (done) {
+      sharp(fixtures.inputWebPAnimated, { pages: -1 })
+        .resize(320, 80, { fit: sharp.fit.cover })
+        .toBuffer(function (err, data, info) {
+          if (err) throw err;
+          assert.strictEqual(320, info.width);
+          assert.strictEqual(80 * 9, info.height);
+          fixtures.assertSimilar(fixtures.expected('gravity-center-height.webp'), data, done);
+        });
+    });
+  });
+
   describe('Entropy-based strategy', function () {
     it('JPEG', function (done) {
       sharp(fixtures.inputJpg)
@@ -323,6 +347,18 @@ describe('Resize fit=cover', function () {
           fixtures.assertSimilar(fixtures.expected('crop-strategy.png'), data, done);
         });
     });
+
+    it('Animated image rejects', () =>
+      assert.rejects(() => sharp(fixtures.inputGifAnimated, { animated: true })
+        .resize({
+          width: 100,
+          height: 8,
+          position: sharp.strategy.entropy
+        })
+        .toBuffer(),
+      /Resize strategy is not supported for multi-page images/
+      )
+    );
   });
 
   describe('Attention strategy', function () {
@@ -379,5 +415,17 @@ describe('Resize fit=cover', function () {
           fixtures.assertSimilar(fixtures.expected('crop-strategy.png'), data, done);
         });
     });
+
+    it('Animated image rejects', () =>
+      assert.rejects(() => sharp(fixtures.inputGifAnimated, { animated: true })
+        .resize({
+          width: 100,
+          height: 8,
+          position: sharp.strategy.attention
+        })
+        .toBuffer(),
+      /Resize strategy is not supported for multi-page images/
+      )
+    );
   });
 });

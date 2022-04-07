@@ -182,6 +182,24 @@ describe('Input/output', function () {
     assert.strictEqual(info.height, 1);
   });
 
+  it('Read from Uint8ClampedArray with byteOffset and output to Buffer', async () => {
+    // since a Uint8ClampedArray is the same as Uint8Array but clamps the values
+    // between 0-255 it seemed good to add this also
+    const uint8array = Uint8ClampedArray.from([0, 0, 0, 255, 255, 255, 0, 0, 0, 255, 255, 255]);
+    const uint8ArrayWithByteOffset = new Uint8ClampedArray(uint8array.buffer, 3, 6);
+    const { data, info } = await sharp(uint8ArrayWithByteOffset, {
+      raw: {
+        width: 2,
+        height: 1,
+        channels: 3
+      }
+    }).toBuffer({ resolveWithObject: true });
+
+    assert.deepStrictEqual(Uint8ClampedArray.from([255, 255, 255, 0, 0, 0]), new Uint8ClampedArray(data));
+    assert.strictEqual(info.width, 2);
+    assert.strictEqual(info.height, 1);
+  });
+
   it('Stream should emit info event', function (done) {
     const readable = fs.createReadStream(fixtures.inputJpg);
     const writable = fs.createWriteStream(outputJpg);
@@ -196,6 +214,21 @@ describe('Input/output', function () {
     });
     writable.on('close', function () {
       assert.strictEqual(true, infoEventEmitted);
+      rimraf(outputJpg, done);
+    });
+    readable.pipe(pipeline).pipe(writable);
+  });
+
+  it('Stream should emit close event', function (done) {
+    const readable = fs.createReadStream(fixtures.inputJpg);
+    const writable = fs.createWriteStream(outputJpg);
+    const pipeline = sharp().resize(320, 240);
+    let closeEventEmitted = false;
+    pipeline.on('close', function () {
+      closeEventEmitted = true;
+    });
+    writable.on('close', function () {
+      assert.strictEqual(true, closeEventEmitted);
       rimraf(outputJpg, done);
     });
     readable.pipe(pipeline).pipe(writable);
@@ -313,6 +346,20 @@ describe('Input/output', function () {
       });
   });
 
+  it('Allow use of toBuffer and toFile with same instance', async () => {
+    const instance = sharp({
+      create: {
+        width: 8,
+        height: 8,
+        channels: 3,
+        background: 'red'
+      }
+    });
+    await instance.toFile(fixtures.path('output.jpg'));
+    const data = await instance.toBuffer();
+    assert.strictEqual(Buffer.isBuffer(data), true);
+  });
+
   it('Fail when output File is input File', function (done) {
     sharp(fixtures.inputJpg).toFile(fixtures.inputJpg, function (err) {
       assert(err instanceof Error);
@@ -410,7 +457,7 @@ describe('Input/output', function () {
       done();
     }).catch(function (err) {
       assert(err instanceof Error);
-      assert.strictEqual('Input file is missing', err.message);
+      assert.strictEqual('Input file is missing: does-not-exist', err.message);
       done();
     });
   });
@@ -546,19 +593,6 @@ describe('Input/output', function () {
         });
     });
 
-    it('Autoconvert GIF input to PNG output', function (done) {
-      sharp(fixtures.inputGif)
-        .resize(320, 80)
-        .toFile(outputZoinks, function (err, info) {
-          if (err) throw err;
-          assert.strictEqual(true, info.size > 0);
-          assert.strictEqual(sharp.format.magick.input.buffer ? 'gif' : 'png', info.format);
-          assert.strictEqual(320, info.width);
-          assert.strictEqual(80, info.height);
-          rimraf(outputZoinks, done);
-        });
-    });
-
     it('Force JPEG format for PNG input', function (done) {
       sharp(fixtures.inputPng)
         .resize(320, 80)
@@ -646,6 +680,19 @@ describe('Input/output', function () {
       });
   });
 
+  describe('Switch off safety limits for PNG/SVG input', () => {
+    it('Valid', () => {
+      assert.doesNotThrow(() => {
+        sharp({ unlimited: true });
+      });
+    });
+    it('Invalid', () => {
+      assert.throws(() => {
+        sharp({ unlimited: -1 });
+      }, /Expected boolean for unlimited but received -1 of type number/);
+    });
+  });
+
   describe('Limit pixel count of input image', () => {
     it('Invalid fails - negative', () => {
       assert.throws(() => {
@@ -669,7 +716,9 @@ describe('Input/output', function () {
       sharp(fixtures.inputJpg)
         .metadata()
         .then(({ width, height }) =>
-          sharp(fixtures.inputJpg, { limitInputPixels: width * height }).toBuffer()
+          sharp(fixtures.inputJpg, { limitInputPixels: width * height })
+            .resize(2)
+            .toBuffer()
         )
     );
 
@@ -778,6 +827,19 @@ describe('Input/output', function () {
         sharp({ subifd: 1.2 });
       }, /Expected integer between -1 and 100000 for subifd but received 1.2 of type number/);
     });
+  });
+
+  it('Fails when writing to missing directory', async () => {
+    const create = {
+      width: 8,
+      height: 8,
+      channels: 3,
+      background: { r: 0, g: 0, b: 0 }
+    };
+    await assert.rejects(
+      () => sharp({ create }).toFile('does-not-exist/out.jpg'),
+      /unable to open for write/
+    );
   });
 
   describe('create new image', function () {
